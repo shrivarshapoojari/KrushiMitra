@@ -272,6 +272,19 @@ function ImageUpload() {
               <div className="mt-4">
                 <h2 className="text-lg font-semibold text-gray-900">{results.title}</h2>
                 <p className="mt-1 text-sm text-gray-600">{results.description}</p>
+                <h3 className="mt-4 text-md font-semibold text-gray-800">Recommended Supplement:</h3>
+                <p className="text-sm text-gray-600">{results.supplement.name}</p>
+                <img src={results.supplement.image_url} alt="Supplement" className="mt-2 rounded-lg shadow-lg" />
+                
+                <a
+                  href={results.supplement.buy_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block mt-2 text-blue-600 hover:underline"
+                >
+                  Buy Here
+                </a>
+
                 
                 <label htmlFor="language" className="block mt-4 text-sm font-medium text-gray-700">
                   Select Language for Analysis
