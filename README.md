@@ -27,7 +27,10 @@ This project is a web-based  Farmer assistant system. The system comprises a **B
 ## Getting Started
 
 ### 1. Backend Setup
-
+   Download the model from below link and keep it inside Backend folder.
+     
+     https://drive.google.com/file/d/1Gam6zYAPXq7jpTRhfWzIOLgGWjcMUGSO/view?usp=drive_link
+    
 1. Navigate to the `Backend` folder:
    ```bash
    cd Backend
