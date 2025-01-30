@@ -137,18 +137,17 @@ import CNN
 import numpy as np
 import torch
 import pandas as pd
-import google.generativeai as genai
-
+import google.generativeai as genai # type: ignore
+import pickle
 # Configure Google Gemini API
 genai.configure(api_key="AIzaSyCjPtph2f8acbwEl5f9UfuPcZEaA-B4WMo")
 
 # Load disease and supplement data
 disease_info = pd.read_csv('disease_info.csv', encoding='cp1252')
 supplement_info = pd.read_csv('supplement_info.csv', encoding='cp1252')
-
 # Load the CNN model
 model = CNN.CNN(39)
-model.load_state_dict(torch.load("plant_disease_model_1_latest.pt"))
+model.load_state_dict(torch.load("./models/plant_disease_model_1_latest.pt"))
 model.eval()
 
 # Function to predict disease from an image
@@ -246,6 +245,111 @@ def analysis():
         'description': res.text
     } 
     return jsonify(response)
+# #######################################################################
+recommend = pickle.load(open('./models/croprec.pkl','rb'))
+sc = pickle.load(open('./models/standscaler.pkl','rb'))
+ms = pickle.load(open('./models/minmaxscaler.pkl','rb'))
+
+@app.route("/recommend", methods=['POST'])
+def recoommend():
+    # Getting JSON data from the request
+    data = request.get_json()
+
+    N = data['Nitrogen']
+    P = data['Phosphorus']
+    K = data['Potassium']
+    temp = data['Temperature']
+    humidity = data['Humidity']
+    ph = data['Ph']
+    rainfall = data['Rainfall']
+
+    # Feature list and transformation
+    feature_list = [N, P, K, temp, humidity, ph, rainfall]
+    single_pred = np.array(feature_list).reshape(1, -1)
+
+    # Scaling features
+    scaled_features = ms.transform(single_pred)
+    final_features = sc.transform(scaled_features)
+    
+    # Predicting the crop
+    prediction = recommend.predict(final_features)
+
+    crop_dict = {
+        1: "Rice", 2: "Maize", 3: "Jute", 4: "Cotton", 5: "Coconut", 6: "Papaya", 7: "Orange",
+        8: "Apple", 9: "Muskmelon", 10: "Watermelon", 11: "Grapes", 12: "Mango", 13: "Banana",
+        14: "Pomegranate", 15: "Lentil", 16: "Blackgram", 17: "Mungbean", 18: "Mothbeans",
+        19: "Pigeonpeas", 20: "Kidneybeans", 21: "Chickpea", 22: "Coffee"
+    }
+
+    # Return the result as a response
+    if prediction[0] in crop_dict:
+        crop = crop_dict[prediction[0]]
+        result = {"crop": crop, "message": f"{crop} is the best crop to be cultivated right there"}
+    else:
+        result = {"error": "Sorry, we could not determine the best crop to be cultivated with the provided data."}
+    return jsonify(result)
+
+#########################################################################################
+cropyield= pickle.load(open('./models/yield.pkl','rb'))  
+le_crop = pickle.load(open('./models/crop_encoder.pkl','rb')) 
+le_season = pickle.load(open('./models/season_encoder.pkl','rb')) 
+le_state = pickle.load(open('./models/state_encoder.pkl','rb')) 
+
+@app.route('/yield', methods=['POST'])
+def crop_yield():
+    data = request.get_json()
+
+    # Extract features from the incoming request
+    Crop = data['Crop']
+    Season = data['Season']
+    State = data['State']
+    Area = data['Area']
+    Annual_Rainfall = data['Annual_Rainfall']
+    Fertilizer = data['Fertilizer']
+    Pesticide = data['Pesticide']
+
+    # Process the features through the recommendation function
+    Crop = le_crop.transform([Crop])[0]
+    Season = le_season.transform([Season])[0]
+    State = le_state.transform([State])[0]
+    features = np.array([[Crop, Season, State, Area, Annual_Rainfall, Fertilizer, Pesticide]])
+
+    # Predict the output
+    prediction = cropyield.predict(features).reshape(1, -1)
+
+    # Return the prediction as a response
+    return jsonify({'prediction': prediction[0][0]})
+###############################################################################
+irrigation=pickle.load(open("./models/irrigation.pkl","rb"))
+@app.route('/irrigation', methods=['POST'])
+def sirrigation():
+    # Get data from request
+    data = request.get_json()
+
+    try:
+        Crop = data['Crop']
+        N = data['N']
+        P = data['P']
+        K = data['K']
+        Moisture = data['Moisture']
+        Temperature = data['Temperature']
+        pH = data['pH']
+
+        
+        features = np.array([[Crop, N, P, K, Moisture, Temperature, pH]])
+        predict = irrigation.predict(features).reshape(1, -1)
+        predicted_value = int(predict[0]) 
+        if predicted_value :
+            state = "On"
+            return jsonify({'state': state})
+        elif predicted_value ==0:
+            state = "Off"
+            return jsonify({"state": state})
+        else:
+            return jsonify({'error': 'No data available'}), 500
+    except KeyError as e:
+        return jsonify({'error': f'Missing parameter: {str(e)}'}), 400
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
